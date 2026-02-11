@@ -21,6 +21,21 @@ from bs4 import BeautifulSoup
 import saini as helper
 from utils import progress_bar
 from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_USERS
+from flask import Flask
+import threading
+import os
+
+app_web = Flask(__name__)
+
+@app_web.route("/")
+def home():
+    return "Bot Running ✅"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app_web.run(host="0.0.0.0", port=port)
+
+threading.Thread(target=run_web).start()
 from aiohttp import ClientSession
 from subprocess import getstatusoutput
 from pytube import YouTube
@@ -1764,17 +1779,3 @@ if __name__ == "__main__":
 
 
 bot.run()
-
-from flask import Flask
-from threading import Thread
-
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run():
-    app.run(host="0.0.0.0", port=10000)
-
-Thread(target=run).start()
