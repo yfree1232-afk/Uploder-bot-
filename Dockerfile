@@ -34,4 +34,4 @@ RUN pip3 install --no-cache-dir --upgrade pip \
     && python3 -m pip install -U yt-dlp
 
 # Set the command to run the application
-CMD ["sh", "-c", "gunicorn app:app & python3 main.py"]
+CMD ["sh", "-c", "python3 main.py"]
