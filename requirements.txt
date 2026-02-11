@@ -1,4 +1,5 @@
+setuptools
 pyrogram
 tgcrypto
-gunicorn
-setuptools
+
+
