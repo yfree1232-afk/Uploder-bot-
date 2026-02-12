@@ -11,3 +11,4 @@ beautifulsoup4
 aiofiles
 flask
 pytube
+pyromod
