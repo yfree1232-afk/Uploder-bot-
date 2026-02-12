@@ -1,12 +1,10 @@
-flask
-setuptools
 pyrogram
 tgcrypto
+requests
 m3u8
 pytz
-requests
 yt-dlp
 cloudscraper
 pycryptodome
-BeautifulSoup
-bs4
+aiohttp
+beautifulsoup4
