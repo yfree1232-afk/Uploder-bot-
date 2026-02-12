@@ -2,5 +2,5 @@ flask
 setuptools
 pyrogram
 tgcrypto
-
+m3u8
 
