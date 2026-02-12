@@ -9,3 +9,4 @@ pycryptodome
 aiohttp
 beautifulsoup4
 aiofiles
+flask
