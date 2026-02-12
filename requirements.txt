@@ -5,3 +5,5 @@ tgcrypto
 m3u8
 pytz
 requests
+yt-dlp
+cloudscraper
