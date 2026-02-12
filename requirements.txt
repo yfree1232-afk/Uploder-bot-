@@ -8,3 +8,4 @@ requests
 yt-dlp
 cloudscraper
 pycryptodome
+BeautifulSoup
