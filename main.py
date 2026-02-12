@@ -1192,7 +1192,7 @@ async def txt_handler(bot: Client, m: Message):
 
             #elif "d1d34p8vz63oiq" in url or "sec1.pw.live" in url:
             elif "childId" in url and "parentId" in url:
-                url = f"https://anonymouspwplayer-0e5a3f512dec.herokuapp.com/pw?url={url}&token={pwtoken}"
+                url = f"https://pwplayerrr-3dba7e3fb6a8.herokuapp.com/pw?url={url}&token={pwtoken}"
                            
             if ".pdf*" in url:
                 url = f"https://dragoapi.vercel.app/pdf/{url}"
@@ -1566,11 +1566,11 @@ async def text_handler(bot: Client, m: Message):
                 url   = response.json()['url']
 
             elif "childId" in url and "parentId" in url:
-                url = f"https://pwplayerr-c96de7802811.herokuapp.com/pw?url={url}&token={pw_token}"
+                url = f"https://pwplayerrr-3dba7e3fb6a8.herokuapp.com/pw?url={url}&token={pwtoken}"
                            
             elif "d1d34p8vz63oiq" in url or "sec1.pw.live" in url:
                 vid_id =  url.split('/')[-2]
-                url = url = f"https://anonymouspwplayerr-c96de7802811.herokuapp.com/pw?url={url}&token={pwtoken}"
+                url = url = f"https://anonymouspwplayerrr-3dba7e3fb6a8.herokuapp.com/pw?url={url}&token={pwtoken}"
                 
             if ".pdf*" in url:
                 url = f"https://dragoapi.vercel.app/pdf/{url}"
