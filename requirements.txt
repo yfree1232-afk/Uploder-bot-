@@ -12,3 +12,4 @@ aiofiles
 flask
 pytube
 pyromod
+ffmpeg
