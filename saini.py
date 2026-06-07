@@ -232,7 +232,7 @@ def time_name():
     return f"{date} {current_time}.mp4"
 
 
-async def download_video(url,cmd, name):
+async def download_video(url, cmd, name):
     download_cmd = f'{cmd} -R 25 --fragment-retries 25 --external-downloader aria2c --downloader-args "aria2c: -x 16 -j 32"'
     global failed_counter
     print(download_cmd)
@@ -243,22 +243,21 @@ async def download_video(url,cmd, name):
         await asyncio.sleep(5)
         await download_video(url, cmd, name)
     failed_counter = 0
-    try:
-        if os.path.isfile(name):
-            return name
-        elif os.path.isfile(f"{name}.webm"):
-            return f"{name}.webm"
-        name = name.split(".")[0]
-        if os.path.isfile(f"{name}.mkv"):
-            return f"{name}.mkv"
-        elif os.path.isfile(f"{name}.mp4"):
-            return f"{name}.mp4"
-        elif os.path.isfile(f"{name}.mp4.webm"):
-            return f"{name}.mp4.webm"
-
+    
+    if os.path.isfile(name):
         return name
-    except FileNotFoundError as exc:
-        return os.path.isfile.splitext[0] + "." + "mp4"
+    elif os.path.isfile(f"{name}.webm"):
+        return f"{name}.webm"
+    
+    name_clean = name.split(".")[0]
+    if os.path.isfile(f"{name_clean}.mkv"):
+        return f"{name_clean}.mkv"
+    elif os.path.isfile(f"{name_clean}.mp4"):
+        return f"{name_clean}.mp4"
+    elif os.path.isfile(f"{name_clean}.mp4.webm"):
+        return f"{name_clean}.mp4.webm"
+
+    raise FileNotFoundError(f"Download failed: video file for '{name}' was not found. Please ensure FFmpeg is installed on the server to download HLS streams.")
 
 
 async def send_doc(bot: Client, m: Message, cc, ka, cc1, prog, count, name, channel_id):
