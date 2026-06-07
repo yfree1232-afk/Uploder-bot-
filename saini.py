@@ -233,7 +233,12 @@ def time_name():
 
 
 async def download_video(url, cmd, name):
-    download_cmd = f'{cmd} -R 25 --fragment-retries 25 --hls-use-mpegts --external-downloader aria2c --downloader-args "aria2c: -x 16 -j 32"'
+    # aria2c cannot handle HLS/m3u8 streams - use yt-dlp native for those
+    is_hls = ".m3u8" in url or "m3u8" in cmd
+    if is_hls:
+        download_cmd = f'{cmd} -R 25 --fragment-retries 25 --hls-use-mpegts'
+    else:
+        download_cmd = f'{cmd} -R 25 --fragment-retries 25 --external-downloader aria2c --downloader-args "aria2c: -x 16 -j 32"'
     global failed_counter
     print(download_cmd)
     logging.info(download_cmd)
