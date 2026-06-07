@@ -95,7 +95,19 @@ def parse_batch_file(file_path: str) -> List[Tuple[str, str]]:
             line = line.strip()
             if not line:
                 continue
-            if "|" in line:
+            if " : https://" in line:
+                desc, url = map(str.strip, line.split(" : https://", 1))
+                url = "https://" + url
+            elif " : http://" in line:
+                desc, url = map(str.strip, line.split(" : http://", 1))
+                url = "http://" + url
+            elif ":https://" in line:
+                desc, url = map(str.strip, line.split(":https://", 1))
+                url = "https://" + url
+            elif ":http://" in line:
+                desc, url = map(str.strip, line.split(":http://", 1))
+                url = "http://" + url
+            elif "|" in line:
                 desc, url = map(str.strip, line.split("|", 1))
             elif "\t" in line:
                 desc, url = map(str.strip, line.split("\t", 1))
