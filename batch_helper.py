@@ -1,11 +1,20 @@
 import os
+import re
 import asyncio
 import aiohttp
-import subprocess
 import shutil
+import time
+import datetime
 from typing import List, Tuple
 
-# Helper to parse the .txt batch file
+# ─────────────────────────────────────────────
+# Parse batch .txt file
+# Supported formats (one per line):
+#   Description | URL
+#   Description \t URL
+#   [Topic] Title : URL          (colon-separated last part)
+#   raw URL only (description auto-generated)
+# ─────────────────────────────────────────────
 def parse_batch_file(file_path: str) -> List[Tuple[str, str]]:
     entries = []
     with open(file_path, "r", encoding="utf-8") as f:
@@ -13,132 +22,234 @@ def parse_batch_file(file_path: str) -> List[Tuple[str, str]]:
             line = line.strip()
             if not line:
                 continue
-            # Expect "Description | URL" (pipe separated). Fall back to tab.
             if "|" in line:
                 desc, url = map(str.strip, line.split("|", 1))
             elif "\t" in line:
                 desc, url = map(str.strip, line.split("\t", 1))
             else:
-                # If format is unexpected, skip.
-                continue
-            entries.append((desc, url))
+                # treat whole line as URL, generate fallback desc
+                url = line.strip()
+                desc = url.split("/")[-1].split("?")[0] or "file"
+            entries.append((desc, url.strip()))
     return entries
 
-# Download HLS video and extract a thumbnail (first frame)
-async def download_hls(url: str, out_path: str, thumb_path: str) -> bool:
-    # ffmpeg command to copy video
-    cmd_video = ["ffmpeg", "-y", "-i", url, "-c", "copy", out_path]
-    # ffmpeg command to grab a single frame as thumbnail
-    cmd_thumb = ["ffmpeg", "-y", "-i", url, "-vframes", "1", "-q:v", "2", thumb_path]
-    proc_vid = await asyncio.create_subprocess_exec(*cmd_video, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    await proc_vid.communicate()
-    proc_thumb = await asyncio.create_subprocess_exec(*cmd_thumb, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    await proc_thumb.communicate()
-    return os.path.isfile(out_path) and os.path.isfile(thumb_path)
 
-# Generic download for PDFs or images using aiohttp streaming
-async def download_file(url: str, out_path: str) -> bool:
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            if resp.status != 200:
-                return False
-            with open(out_path, "wb") as f:
-                async for chunk in resp.content.iter_chunked(64 * 1024):
-                    f.write(chunk)
+# ─────────────────────────────────────────────
+# Download HLS / video URL using yt-dlp
+# (no ffmpeg required – uses native downloader)
+# ─────────────────────────────────────────────
+async def download_hls_ytdlp(url: str, out_path: str) -> bool:
+    """Download m3u8/HLS stream using yt-dlp without requiring ffmpeg."""
+    cmd = [
+        "yt-dlp",
+        "--no-check-certificate",
+        "--hls-use-mpegts",          # native TS muxer – no ffmpeg needed
+        "--no-part",
+        "-R", "5",
+        "--fragment-retries", "5",
+        "-o", out_path,
+        url,
+    ]
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
     return os.path.isfile(out_path)
 
-# Main processing function called from the bot handler
-async def process_batch(txt_path: str, bot, chat_id: int, user_id: int, credit_name: str = "{CREDIT}"):
+
+# ─────────────────────────────────────────────
+# Generic download (PDF / image)
+# ─────────────────────────────────────────────
+async def download_file(url: str, out_path: str) -> bool:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=120)) as resp:
+                if resp.status != 200:
+                    return False
+                with open(out_path, "wb") as f:
+                    async for chunk in resp.content.iter_chunked(64 * 1024):
+                        f.write(chunk)
+        return os.path.isfile(out_path)
+    except Exception:
+        return False
+
+
+# ─────────────────────────────────────────────
+# Caption generator
+# ─────────────────────────────────────────────
+def generate_caption(idx: int, desc: str, url: str, credit_name: str,
+                     topic_name: str = "", batch_name: str = "") -> str:
+    vid_id_match = re.search(r"[?&]id=(\d+)", url)
+    vid_id = vid_id_match.group(1) if vid_id_match else str(idx).zfill(3)
+    is_pdf = ".pdf" in url.lower()
+    icon = "📑" if is_pdf else "🎥"
+    ext  = ".pdf" if is_pdf else ".mp4"
+    title = f"{desc}{ext}"
+    topic = topic_name or desc
+    batch = batch_name or "Batch"
+    return (
+        f"[{icon}]Vid Id : {vid_id}\n"
+        f"Video Title : {title}\n"
+        f"Topic Name : {topic}\n"
+        f"Batch Name : {batch}\n\n"
+        f"Downloadd By ➤ {credit_name}"
+    )
+
+
+# ─────────────────────────────────────────────
+# Main batch processor
+# ─────────────────────────────────────────────
+async def process_batch(
+    txt_path: str,
+    bot,
+    chat_id: int,
+    user_id: int,
+    credit_name: str = "{CREDIT}",
+    batch_name: str = "Batch",
+):
     base_dir = os.path.dirname(txt_path)
-    temp_dir = os.path.join(base_dir, "temp")
+    temp_dir = os.path.join(base_dir, f"temp_{chat_id}")
     os.makedirs(temp_dir, exist_ok=True)
+
     entries = parse_batch_file(txt_path)
+    total = len(entries)
+    await bot.send_message(chat_id, f"📋 **Batch started** – {total} items found. Processing...")
+
     success_cnt = 0
     fail_cnt = 0
     index_lines = []
-    for desc, url in entries:
-        # Sanitize description for filename
-        safe_desc = "_".join([s for s in desc.replace("|", "").split() if s])
-        ext = os.path.splitext(url)[1].lower()
-        if ext == ".m3u8" or "m3u8" in url:
-            out_file = os.path.join(temp_dir, f"{safe_desc}.mp4")
-            thumb_file = os.path.join(temp_dir, f"{safe_desc}_thumb.jpg")
-            ok = await download_hls(url, out_file, thumb_file)
-            if ok:
-                caption = generate_caption(desc, url, credit_name)
-                await bot.send_video(chat_id=chat_id, video=out_file, thumb=thumb_file, caption=caption)
-                success_cnt += 1
+
+    for idx, (desc, url) in enumerate(entries, start=1):
+        # Sanitise for filename (no special chars)
+        safe_desc = re.sub(r'[\\/*?:"<>|]', "", desc)[:80].strip()
+        safe_desc = safe_desc.replace(" ", "_") or f"file_{idx}"
+
+        progress_msg = await bot.send_message(
+            chat_id, f"⏬ [{idx}/{total}] Downloading…\n`{desc[:80]}`"
+        )
+
+        try:
+            # ── HLS / video ─────────────────────────────
+            if "m3u8" in url.lower() or url.lower().endswith(".m3u8"):
+                out_file = os.path.join(temp_dir, f"{safe_desc}.ts")
+                ok = await download_hls_ytdlp(url, out_file)
+                if ok:
+                    cap = generate_caption(idx, desc, url, credit_name, desc, batch_name)
+                    await bot.send_video(
+                        chat_id=chat_id,
+                        video=out_file,
+                        caption=cap,
+                        supports_streaming=True,
+                    )
+                    success_cnt += 1
+                else:
+                    fail_cnt += 1
+                    await bot.send_message(
+                        chat_id,
+                        f"⚠️ **Downloading Failed**\n"
+                        f"Name =>> `{desc}`\n"
+                        f"Url =>> `{url}`\n\n"
+                        f"Failed Reason: yt-dlp could not download the HLS stream.",
+                        disable_web_page_preview=True,
+                    )
+
+            # ── PDF ─────────────────────────────────────
+            elif ".pdf" in url.lower():
+                out_file = os.path.join(temp_dir, f"{safe_desc}.pdf")
+                ok = await download_file(url, out_file)
+                if ok:
+                    cap = generate_caption(idx, desc, url, credit_name, desc, batch_name)
+                    await bot.send_document(chat_id=chat_id, document=out_file, caption=cap)
+                    success_cnt += 1
+                else:
+                    fail_cnt += 1
+                    await bot.send_message(
+                        chat_id,
+                        f"⚠️ **Downloading Failed**\nName =>> `{desc}`\nUrl =>> `{url}`\n\nFailed Reason: PDF download returned non-200.",
+                        disable_web_page_preview=True,
+                    )
+
+            # ── Image ────────────────────────────────────
+            elif any(ext in url.lower() for ext in [".jpg", ".jpeg", ".png"]):
+                ext_i = url.lower().rsplit(".", 1)[-1].split("?")[0]
+                out_file = os.path.join(temp_dir, f"{safe_desc}.{ext_i}")
+                ok = await download_file(url, out_file)
+                if ok:
+                    cap = generate_caption(idx, desc, url, credit_name, desc, batch_name)
+                    await bot.send_photo(chat_id=chat_id, photo=out_file, caption=cap)
+                    success_cnt += 1
+                else:
+                    fail_cnt += 1
+                    await bot.send_message(chat_id, f"⚠️ Failed image: `{desc}`")
+
+            # ── Fallback: yt-dlp for anything else ───────
             else:
-                fail_cnt += 1
-                await bot.send_message(chat_id, f"⚠️ Failed to download video for *{desc}*.")
-        elif ext == ".pdf" or url.lower().endswith('.pdf'):
-            out_file = os.path.join(temp_dir, f"{safe_desc}.pdf")
-            ok = await download_file(url, out_file)
-            if ok:
-                caption = generate_caption(desc, url, credit_name)
-                await bot.send_document(chat_id=chat_id, document=out_file, caption=caption)
-                success_cnt += 1
-            else:
-                fail_cnt += 1
-                await bot.send_message(chat_id, f"⚠️ Failed to download PDF for *{desc}*.")
-        elif any(ext_img in url.lower() for ext_img in [".jpg", ".jpeg", ".png"]):
-            out_file = os.path.join(temp_dir, f"{safe_desc}{ext}")
-            ok = await download_file(url, out_file)
-            if ok:
-                caption = generate_caption(desc, url, credit_name)
-                await bot.send_photo(chat_id=chat_id, photo=out_file, caption=caption)
-                success_cnt += 1
-            else:
-                fail_cnt += 1
-                await bot.send_message(chat_id, f"⚠️ Failed to download image for *{desc}*.")
-        else:
-            # Fallback: use yt-dlp to download whatever it can handle
-            out_file = os.path.join(temp_dir, f"{safe_desc}.%(ext)s")
-            dl_cmd = ["yt-dlp", "-o", out_file, url]
-            proc = await asyncio.create_subprocess_exec(*dl_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-            await proc.communicate()
-            # yt-dlp may produce multiple files; find the first one
-            downloaded = None
-            for f in os.listdir(temp_dir):
-                if f.startswith(safe_desc) and not f.endswith('_thumb.jpg'):
-                    downloaded = os.path.join(temp_dir, f)
-                    break
-            if downloaded:
-                caption = generate_caption(desc, url, credit_name)
-                await bot.send_document(chat_id=chat_id, document=downloaded, caption=caption)
-                success_cnt += 1
-            else:
-                fail_cnt += 1
-                await bot.send_message(chat_id, f"⚠️ yt-dlp could not fetch *{desc}*.")
-        # Prepare index entry (clickable link to original URL)
-        index_lines.append(f"[{desc}]({url})")
-        # Cleanup per-item files (keep thumbnails for videos only for sending, then delete)
-        for p in list(os.listdir(temp_dir)):
-            p_path = os.path.join(temp_dir, p)
+                out_file = os.path.join(temp_dir, f"{safe_desc}.mp4")
+                ok = await download_hls_ytdlp(url, out_file)
+                if ok:
+                    cap = generate_caption(idx, desc, url, credit_name, desc, batch_name)
+                    await bot.send_video(
+                        chat_id=chat_id, video=out_file,
+                        caption=cap, supports_streaming=True
+                    )
+                    success_cnt += 1
+                else:
+                    fail_cnt += 1
+                    await bot.send_message(
+                        chat_id,
+                        f"⚠️ **Downloading Failed**\nName =>> `{desc}`\nUrl =>> `{url}`",
+                        disable_web_page_preview=True,
+                    )
+
+            # Add to index
+            index_lines.append(f"{str(idx).zfill(2)}. [{desc}]({url})")
+
+        except Exception as e:
+            fail_cnt += 1
+            await bot.send_message(
+                chat_id,
+                f"⚠️ **Error**\nName =>> `{desc}`\nReason: `{str(e)[:200]}`",
+            )
+
+        finally:
+            # Delete progress message & clean temp files for this item
             try:
-                os.remove(p_path)
+                await progress_msg.delete()
             except Exception:
                 pass
-    # Send summary
-    await bot.send_message(chat_id, f"✅ Batch completed: {success_cnt} succeeded, {fail_cnt} failed.")
-    # Build index message with timestamp header
-    index_msg = "[07/06/2026 17:12] 𝓐𝓭𝓲𝓽𝔂𝓪: 📑 Topics covered in this Batch:\n\n" + "\n".join(index_lines)
-    await bot.send_message(chat_id, index_msg, parse_mode="MarkdownV2")
-    # Cleanup temp directory and original txt file
+            for p in os.listdir(temp_dir):
+                try:
+                    os.remove(os.path.join(temp_dir, p))
+                except Exception:
+                    pass
+
+    # ── Summary ─────────────────────────────────
+    await bot.send_message(
+        chat_id,
+        f"✅ **Batch Complete!**\n\n"
+        f"• Total  : {total}\n"
+        f"• Success: {success_cnt}\n"
+        f"• Failed : {fail_cnt}",
+    )
+
+    # ── Index (WhatsApp style) ───────────────────
+    if index_lines:
+        ts = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+        index_header = f"[{ts}] 𝓐𝓭𝓲𝓽𝔂𝓪: 📑 Topics covered in this Batch:\n\n"
+        index_body = "\n".join(index_lines)
+        # split if too long for one Telegram message
+        full_index = index_header + index_body
+        for chunk_start in range(0, len(full_index), 4000):
+            await bot.send_message(chat_id, full_index[chunk_start:chunk_start + 4000])
+
+    # ── Cleanup ──────────────────────────────────
     shutil.rmtree(temp_dir, ignore_errors=True)
     try:
         os.remove(txt_path)
     except Exception:
         pass
-
-# Caption generator matching user supplied format
-def generate_caption(desc: str, url: str, credit_name: str) -> str:
-    # Attempt to extract a numeric video ID from the URL if present
-    import re
-    vid_id_match = re.search(r"[?&]id=(\d+)", url)
-    vid_id = vid_id_match.group(1) if vid_id_match else "069"
-    # For title we reuse the description (cleaned)
-    title = f"{desc}.mp4"
-    topic = desc
-    batch_name = "Psychology"
-    return f"[🎥]Vid Id : {vid_id}\nVideo Title : {title}\nTopic Name : {topic}\nBatch Name : {batch_name}\n\nDownloadd By ➤ {credit_name}"
