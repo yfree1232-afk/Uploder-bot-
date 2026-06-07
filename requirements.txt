@@ -14,3 +14,7 @@ pytube
 pyromod
 ffmpeg
 ffprobe
+motor
+pymongo
+dnspython
+
