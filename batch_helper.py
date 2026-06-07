@@ -9,6 +9,79 @@ import requests as req_lib
 from typing import List, Tuple
 
 # ─────────────────────────────────────────────
+# Appx/Classx direct URL decrypter & resolver
+# ─────────────────────────────────────────────
+def decrypt_appx_link(enc: str) -> str:
+    import base64
+    from Crypto.Cipher import AES
+    from Crypto.Util.Padding import unpad
+    try:
+        enc_data = base64.b64decode(enc.split(':')[0])
+        key = '638udh3829162018'.encode('utf-8')
+        iv = 'fedcba9876543210'.encode('utf-8')
+        if not enc_data:
+            return ""
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        plaintext = unpad(cipher.decrypt(enc_data), AES.block_size)
+        return plaintext.decode('utf-8')
+    except Exception as e:
+        print(f"Decryption error: {e}")
+        return ""
+
+def resolve_appx_vercel_url(url: str) -> str:
+    if "appxsignurl.vercel.app" not in url:
+        return url
+        
+    import urllib.parse
+    import requests
+    import re
+    try:
+        parsed = urllib.parse.urlparse(url)
+        query = urllib.parse.parse_qs(parsed.query)
+        userid = query.get("userid", ["446172"])[0]
+        
+        path_parts = parsed.path.strip("/").split("/")
+        if len(path_parts) >= 4:
+            tenant = path_parts[1]
+            course_id = path_parts[2]
+            filename = path_parts[3]
+            fn_parts = filename.split(".")
+            if len(fn_parts) >= 2:
+                content_id = fn_parts[-2]
+            else:
+                return url
+        else:
+            return url
+            
+        api_base = f"https://{tenant}api.classx.co.in"
+        api_url = f"{api_base}/get/fetchVideoDetailsById?course_id={course_id}&video_id={content_id}&ytflag=0&folder_wise_course=0"
+        
+        token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjQ0NjE3MiIsInRpbWVzdGFtcCI6MTc4MDczMzE4OSwiaXZfdmVyIjoyMywic2Vzc2lvbiI6ImV5SjBlWEFpT2lKS1YxUWlMQ0poYkdjaU9pSklVekkxTmlKOS5leUpwWkNJNklqUTBOakUzTWlJc0ltVnRZV2xzSWpvaWMzVnlZV3ByYUdGeWRXRnlZVUJuYldGcGJDNWpiMjBpTENKdVlXMWxJam9pVTNWeVlXb2dTM1Z0WVhJaUxDSjBaVzVoYm5SVWVYQmxJam9pZFhObGNpSXNJblJsYm1GdWRFNWhiV1VpT2lKcllYVjBhV3g1WVdGc2NHcGxYMlJpSWl3aWRHVnVZVzUwU1dRaU9pSWlMQ0prYVhOd2IzTmhZbXhsSWpwbVlXeHpaWDAuMHdiajdOellzZVNsUTJqQUpfTFFmMDlwMG1lM2NYVmlLWHg2YWZkWmRTdyJ9.Q4BxMCC6y9f14LXvGng8omlkeA5Hc1Jzw7C7exjSJGo"
+        
+        headers = {
+            'Client-Service': 'Appx',
+            'Auth-Key': 'appxapi',
+            'User-ID': userid,
+            'Authorization': token,
+            'source': 'website',
+            'Host': f"{tenant}api.classx.co.in",
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        }
+        
+        resp = requests.get(api_url, headers=headers, timeout=15)
+        if resp.status_code == 200:
+            resp_json = resp.json()
+            data = resp_json.get("data", {})
+            download_link_enc = data.get("download_link") or data.get("pdf_link")
+            if download_link_enc:
+                decrypted = decrypt_appx_link(download_link_enc)
+                if decrypted:
+                    return decrypted
+    except Exception as e:
+        print(f"Error resolving appx URL: {e}")
+        
+    return url
+
 # Parse batch .txt file
 # Supported formats (one per line):
 #   Description | URL
@@ -219,6 +292,7 @@ async def process_batch(
     index_lines = []
 
     for idx, (desc, url) in enumerate(entries, start=1):
+        url = resolve_appx_vercel_url(url)
         safe_desc = re.sub(r'[\\/*?:"<>|]', "", desc)[:80].strip()
         safe_desc = safe_desc.replace(" ", "_") or f"file_{idx}"
 
