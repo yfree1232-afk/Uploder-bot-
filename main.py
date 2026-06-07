@@ -22,6 +22,7 @@ from bs4 import BeautifulSoup
 import saini as helper
 from utils import progress_bar
 from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_USERS, MONGO_URL
+import batch_helper
 from db import db
 from flask import Flask
 import threading
