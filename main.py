@@ -1533,8 +1533,58 @@ async def txt_handler(bot: Client, m: Message):
         await bot.send_message(m.chat.id, f"<blockquote><b>✅ Your Task is completed, please check your Set Channel📱</b></blockquote>")
 
 
+
+@bot.on_message(filters.command("batchdownload") & filters.private)
+async def batchdownload_handler(client: Client, m: Message):
+    is_auth = await db.is_user_authorized(m.chat.id, OWNER)
+    if not is_auth:
+        await m.reply_text(
+            f"<blockquote><b>Oopss! You are not a Premium member\n"
+            f"PLEASE /upgrade YOUR PLAN\n"
+            f"Your User id - <code>{m.chat.id}</code></b></blockquote>"
+        )
+        return
+
+    editable = await m.reply_text(
+        "<blockquote><b>📤 Send me your .txt file containing batch links.\n\n"
+        "Format per line:\n"
+        "<code>Description | URL</code>\n"
+        "or just the URL alone.</b></blockquote>"
+    )
+
+    try:
+        input_msg: Message = await client.listen(m.chat.id)
+
+        if not input_msg.document or not input_msg.document.file_name.endswith(".txt"):
+            await editable.edit("❌ <b>Invalid file. Please send a .txt file.</b>")
+            return
+
+        await editable.edit("⏳ <b>File received. Processing batch…</b>")
+        txt_path = await input_msg.download()
+        await input_msg.delete()
+
+        from vars import CREDIT
+        await batch_helper.process_batch(
+            txt_path=txt_path,
+            bot=client,
+            chat_id=m.chat.id,
+            user_id=m.chat.id,
+            credit_name=CREDIT,
+            batch_name="Batch",
+        )
+
+    except Exception as e:
+        await m.reply_text(f"<b>❌ Error:</b>\n<blockquote>{str(e)}</blockquote>")
+    finally:
+        try:
+            await editable.delete()
+        except Exception:
+            pass
+
+
 @bot.on_message(filters.text & filters.private)
 async def text_handler(bot: Client, m: Message):
+
     if m.from_user.is_bot:
         return
     links = m.text
