@@ -264,7 +264,7 @@ async def send_doc(bot: Client, m: Message, cc, ka, cc1, prog, count, name, chan
     reply = await bot.send_message(channel_id, f"Downloading pdf:\n<pre><code>{name}</code></pre>")
     time.sleep(1)
     start_time = time.time()
-    await bot.send_document(ka, caption=cc1)
+    await bot.send_document(chat_id=channel_id, document=ka, caption=cc1)
     count+=1
     await reply.delete (True)
     time.sleep(1)
