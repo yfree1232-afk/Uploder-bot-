@@ -3,6 +3,7 @@ import re
 import sys
 import m3u8
 import json
+import datetime
 import time
 import pytz
 import asyncio
@@ -20,7 +21,8 @@ from logs import logging
 from bs4 import BeautifulSoup
 import saini as helper
 from utils import progress_bar
-from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_USERS
+from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_USERS, MONGO_URL
+from db import db
 from flask import Flask
 import threading
 import os
@@ -104,22 +106,40 @@ async def add_auth_user(client: Client, message: Message):
         return 
     try:
         new_user_id = int(message.command[1])
-        if new_user_id in AUTH_USERS:
-            await message.reply_text("**User ID is already authorized.**")
-        else:
-            AUTH_USERS.append(new_user_id)
-            await message.reply_text(f"**User ID `{new_user_id}` added to authorized users.**")
-            await bot.send_message(chat_id=new_user_id, text=f"<b>Great! You are added in Premium Membership!</b>")
+        days = int(message.command[2]) if len(message.command) > 2 else 30
+        try:
+            user = await client.get_users(new_user_id)
+            name = user.first_name or f"User {new_user_id}"
+        except:
+            name = f"User {new_user_id}"
+            
+        expiry_date = await db.add_user(new_user_id, name, days)
+        expiry_str = expiry_date.strftime("%d-%m-%Y")
+        
+        await message.reply_text(f"**User ID `{new_user_id}` authorized successfully until {expiry_str}.**")
+        try:
+            await bot.send_message(chat_id=new_user_id, text=f"<b>Great! You are added in Premium Membership! Expiry: {expiry_str}</b>")
+        except:
+            pass
     except (IndexError, ValueError):
-        await message.reply_text("**Please provide a valid user ID.**")
+        await message.reply_text("**Format: /addauth user_id [days_count]**\nExample: `/addauth 123456789 30`")
 
 @bot.on_message(filters.command("users") & filters.private)
 async def list_auth_users(client: Client, message: Message):
     if message.chat.id != OWNER:
         return
     
-    user_list = '\n'.join(map(str, AUTH_USERS))  # AUTH_USERS ki list dikhayenge
-    await message.reply_text(f"**Authorized Users:**\n{user_list}")
+    users = await db.list_authorized_users()
+    if not users:
+        await message.reply_text("**No authorized users found.**")
+        return
+        
+    user_list = []
+    for user in users:
+        days_left = (user['expiry_date'] - datetime.datetime.now()).days
+        user_list.append(f"• Name: {user['name']} | ID: `{user['user_id']}` | Exp: {user['expiry_date'].strftime('%d-%m-%Y')} ({days_left} days left)")
+    
+    await message.reply_text(f"**Authorized Users:**\n" + '\n'.join(user_list))
 
 @bot.on_message(filters.command("rmauth") & filters.private)
 async def remove_auth_user(client: Client, message: Message):
@@ -128,14 +148,18 @@ async def remove_auth_user(client: Client, message: Message):
     
     try:
         user_id_to_remove = int(message.command[1])
-        if user_id_to_remove not in AUTH_USERS:
-            await message.reply_text("**User ID is not in the authorized users list.**")
+        removed = await db.remove_user(user_id_to_remove)
+        if removed:
+            await message.reply_text(f"**User ID `{user_id_to_remove}` removed from database.**")
+            try:
+                await bot.send_message(chat_id=user_id_to_remove, text=f"<b>Oops! You are removed from Premium Membership!</b>")
+            except:
+                pass
         else:
-            AUTH_USERS.remove(user_id_to_remove)
-            await message.reply_text(f"**User ID `{user_id_to_remove}` removed from authorized users.**")
-            await bot.send_message(chat_id=user_id_to_remove, text=f"<b>Oops! You are removed from Premium Membership!</b>")
+            await message.reply_text("**User ID was not authorized in database.**")
     except (IndexError, ValueError):
         await message.reply_text("**Please provide a valid user ID.**")
+
 
 
 @bot.on_message(filters.command("broadcast") & filters.private)
@@ -147,7 +171,8 @@ async def broadcast_handler(client: Client, message: Message):
         return
     success = 0
     fail = 0
-    for user_id in list(set(TOTAL_USERS)):
+    total_users_list = await db.list_total_users()
+    for user_id in list(set(total_users_list)):
         try:
             # Text
             if message.reply_to_message.text:
@@ -191,12 +216,13 @@ async def broadusers_handler(client: Client, message: Message):
     if message.chat.id != OWNER:
         return
 
-    if not TOTAL_USERS:
+    total_users_list = await db.list_total_users()
+    if not total_users_list:
         await message.reply_text("**No Broadcasted User**")
         return
 
     user_infos = []
-    for user_id in list(set(TOTAL_USERS)):
+    for user_id in list(set(total_users_list)):
         try:
             user = await client.get_users(int(user_id))
             fname = user.first_name if user.first_name else " "
@@ -211,6 +237,7 @@ async def broadusers_handler(client: Client, message: Message):
         + "\n".join(user_infos)
     )
     await message.reply_text(text)
+
     
         
 @bot.on_message(filters.command("cookies") & filters.private)
@@ -537,8 +564,9 @@ async def restart_handler(_, m):
 @bot.on_message(filters.command("stop") & filters.private)
 async def cancel_handler(client: Client, m: Message):
     global processing_request, cancel_requested
-    if m.chat.id not in AUTH_USERS:
-        print(f"User ID not in AUTH_USERS", m.chat.id)
+    is_auth = await db.is_user_authorized(m.chat.id, OWNER)
+    if not is_auth:
+        print(f"User ID not in DB authorized users", m.chat.id)
         await bot.send_message(
             m.chat.id, 
             f"<blockquote>__**Oopss! You are not a Premium member**__\n"
@@ -558,8 +586,7 @@ async def cancel_handler(client: Client, m: Message):
 @bot.on_message(filters.command("start"))
 async def start(bot, m: Message):
     user_id = m.chat.id
-    if user_id not in TOTAL_USERS:
-        TOTAL_USERS.append(user_id)
+    await db.add_total_user(user_id)
     user = await bot.get_me()
 
     mention = user.mention
@@ -599,7 +626,8 @@ async def start(bot, m: Message):
     )
 
     await asyncio.sleep(1)
-    if m.chat.id in AUTH_USERS:
+    is_auth = await db.is_user_authorized(m.chat.id, OWNER)
+    if is_auth:
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("💎 Features", callback_data="feat_command"), InlineKeyboardButton("🕸️ Commands", callback_data="cmd_command")],
             [InlineKeyboardButton("💳 Plans", callback_data="upgrade_command")],
@@ -623,6 +651,7 @@ async def start(bot, m: Message):
            f" 🎉 Welcome {m.from_user.first_name} to DRM Bot! 🎉\n\n"
            f"**You are currently using the free version.** 🆓\n\n<blockquote expandable>I'm here to make your life easier by downloading videos from your **.txt** file 📄 and uploading them directly to Telegram!</blockquote>\n\n**Want to get started? Press /id**\n\n💬 Contact : [{CREDIT}⁬](tg://openmessage?user_id={OWNER}) to Get The Subscription 🎫 and unlock the full potential of your new bot! 🔓\n", disable_web_page_preview=True, reply_markup=keyboard
     )
+
 
 @bot.on_callback_query(filters.regex("back_to_main_menu"))
 async def back_to_main_menu(client, callback_query):
@@ -938,8 +967,9 @@ async def txt_handler(bot: Client, m: Message):
     processing_request = True
     cancel_requested = False
     user_id = m.from_user.id
-    if m.chat.id not in AUTH_USERS:
-            print(f"User ID not in AUTH_USERS", m.chat.id)
+    is_auth = await db.is_user_authorized(m.chat.id, OWNER)
+    if not is_auth:
+            print(f"User ID not in DB authorized users", m.chat.id)
             await bot.send_message(m.chat.id, f"<blockquote>__**Oopss! You are not a Premium member\nPLEASE /upgrade YOUR PLAN\nSend me your user id for authorization\nYour User id**__ - `{m.chat.id}`</blockquote>\n")
             return
     editable = await m.reply_text(f"**__Hii, I am drm Downloader Bot__\n<blockquote><i>Send Me Your text file which enclude Name with url...\nE.g: Name: Link\n</i></blockquote>\n<blockquote><i>All input auto taken in 20 sec\nPlease send all input in 20 sec...\n</i></blockquote>**")
@@ -1140,6 +1170,21 @@ async def txt_handler(bot: Client, m: Message):
             url = "https://" + Vxy
             link0 = "https://" + Vxy
 
+            # --- DATABASE CACHING CHECK ---
+            cached_doc = await db.get_cached_file(url, raw_text2, vidwatermark)
+            if cached_doc:
+                await m.reply_text(f"🚀 **Fast-forwarding: Found Cached File for URL Index {count}!**")
+                try:
+                    if cached_doc["file_type"] == "video":
+                        await bot.send_video(chat_id=channel_id, video=cached_doc["file_id"], caption=cached_doc["caption"])
+                    else:
+                        await bot.send_document(chat_id=channel_id, document=cached_doc["file_id"], caption=cached_doc["caption"])
+                    count += 1
+                    await asyncio.sleep(0.5)
+                    continue
+                except Exception as e:
+                    print(f"Failed to send cached file_id, falling back to download: {e}")
+
             name1 = links[i][0].replace("(", "[").replace(")", "]").replace("_", "").replace("\t", "").replace(":", "").replace("/", "").replace("+", "").replace("#", "").replace("|", "").replace("@", "").replace("*", "").replace(".", "").replace("https", "").replace("http", "").strip()
             if "," in raw_text3:
                 name = f'{str(count).zfill(3)}) {PRENAME} {name1[:60]}'
@@ -1159,17 +1204,21 @@ async def txt_handler(bot: Client, m: Message):
          
             elif "https://cpvod.testbook.com/" in url or "classplusapp.com/drm/" in url:
                 url = url.replace("https://cpvod.testbook.com/","https://media-cdn.classplusapp.com/drm/")
-                url = f"https://covercel.vercel.app/extract_keys?url={url}@bots_updatee&user_id=7793257011"
-                #url = f"https://scammer-keys.vercel.app/api?url={url}&token={cptoken}&auth=@scammer_botxz1"
-                mpd, keys = helper.get_mps_and_keys(url)
-                url = mpd
-                keys_string = " ".join([f"--key {key}" for key in keys])
+                cp_headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{cptoken}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
+                cp_params = {"url": url}
+                cp_response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=cp_headers, params=cp_params)
+                if cp_response.status_code == 200 and 'url' in cp_response.json():
+                    url = cp_response.json()['url']
+                else:
+                    # Fallback: attempt direct download from signed CDN url
+                    pass
 
             elif "classplusapp" in url:
-                signed_api = f"https://covercel.vercel.app/extract_keys?url={url}@bots_updatee&user_id=7793257011"
-                response = requests.get(signed_api, timeout=20)
-                url = response.text.strip()
-                url = response.json()['url']  
+                cp_headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{cptoken}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
+                cp_params = {"url": url}
+                cp_response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=cp_headers, params=cp_params)
+                if cp_response.status_code == 200 and 'url' in cp_response.json():
+                    url = cp_response.json()['url']  
                 
             elif "tencdn.classplusapp" in url:
                 headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{cptoken}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
@@ -1312,47 +1361,18 @@ async def txt_handler(bot: Client, m: Message):
                             time.sleep(e.x)
                             continue    
 
-                elif ".ws" in url and  url.endswith(".ws"):
+                elif ".ws" in url and url.endswith(".ws"):
                     try:
                         await helper.pdf_download(f"{api_url}utkash-ws?url={url}&authorization={api_token}",f"{name}.html")
                         time.sleep(1)
                         await bot.send_document(chat_id=channel_id, document=f"{name}.html", caption=cchtml)
-                        os.remove(f'{name}.html')
+                        os.remove(f"{name}.html")
                         count += 1
-                    except FloodWait as e:
-                        await m.reply_text(str(e))
-                        time.sleep(e.x)
-                        continue    
-                            
-                elif any(ext in url for ext in [".jpg", ".jpeg", ".png"]):
-                    try:
-                        ext = url.split('.')[-1]
-                        cmd = f'yt-dlp -o "{namef}.{ext}" "{url}"'
-                        download_cmd = f"{cmd} -R 25 --fragment-retries 25"
-                        os.system(download_cmd)
-                        copy = await bot.send_photo(chat_id=channel_id, photo=f'{namef}.{ext}', caption=ccimg)
-                        count += 1
-                        os.remove(f'{namef}.{ext}')
-                    except FloodWait as e:
-                        await m.reply_text(str(e))
-                        time.sleep(e.x)
-                        continue    
+                    except Exception as e:
+                        await m.reply_text(f"WS Download Error: {str(e)}")
+                    continue
 
-                elif any(ext in url for ext in [".mp3", ".wav", ".m4a"]):
-                    try:
-                        ext = url.split('.')[-1]
-                        cmd = f'yt-dlp -o "{namef}.{ext}" "{url}"'
-                        download_cmd = f"{cmd} -R 25 --fragment-retries 25"
-                        os.system(download_cmd)
-                        copy = await bot.send_document(chat_id=channel_id, document=f'{namef}.{ext}', caption=ccm)
-                        count += 1
-                        os.remove(f'{namef}.{ext}')
-                    except FloodWait as e:
-                        await m.reply_text(str(e))
-                        time.sleep(e.x)
-                        continue    
-                    
-                elif 'encrypted.m' in url:    
+                elif 'encrypted.m' in url:
                     remaining_links = len(links) - count
                     progress = (count / len(links)) * 100
                     Show1 = f"<blockquote>🚀𝐏𝐫𝐨𝐠𝐫𝐞𝐬𝐬 » {progress:.2f}%</blockquote>\n┃\n" \
@@ -1377,7 +1397,11 @@ async def txt_handler(bot: Client, m: Message):
                     filename = res_file  
                     await prog1.delete(True)
                     await prog.delete(True)
-                    await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id)
+                    uploaded_msg = await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id)
+                    if uploaded_msg:
+                        file_id = uploaded_msg.video.file_id if uploaded_msg.video else uploaded_msg.document.file_id
+                        file_type = "video" if uploaded_msg.video else "document"
+                        await db.add_cached_file(url, raw_text2, vidwatermark, file_id, file_type, cc)
                     count += 1  
                     await asyncio.sleep(1)  
                     continue  
@@ -1391,7 +1415,7 @@ async def txt_handler(bot: Client, m: Message):
                            f"━━━━━━━━━━━━━━━━━━━━━━━━\n" \
                            f"<blockquote><b>⚡Dᴏᴡɴʟᴏᴀᴅɪɴɢ Sᴛᴀʀᴛᴇᴅ...⏳</b></blockquote>\n┃\n" \
                            f'┣💃𝐂𝐫𝐞𝐝𝐢𝐭 » {CR}\n┃\n' \
-                           f"╰━📚𝐁𝐚𝐭𝐜𝐡 » {b_name}\n" \
+                           f"╰━📚𝐁𝐚𝐭च » {b_name}\n" \
                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n" \
                            f"<blockquote>📚𝐓𝐢𝐭𝐥𝐞 » {namef}</blockquote>\n┃\n" \
                            f"┣🍁𝐐𝐮𝐚𝐥𝐢𝐭𝐲 » {quality}\n┃\n" \
@@ -1407,7 +1431,11 @@ async def txt_handler(bot: Client, m: Message):
                     filename = res_file
                     await prog1.delete(True)
                     await prog.delete(True)
-                    await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id)
+                    uploaded_msg = await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id)
+                    if uploaded_msg:
+                        file_id = uploaded_msg.video.file_id if uploaded_msg.video else uploaded_msg.document.file_id
+                        file_type = "video" if uploaded_msg.video else "document"
+                        await db.add_cached_file(url, raw_text2, vidwatermark, file_id, file_type, cc)
                     count += 1
                     await asyncio.sleep(1)
                     continue
@@ -1437,9 +1465,14 @@ async def txt_handler(bot: Client, m: Message):
                     filename = res_file
                     await prog1.delete(True)
                     await prog.delete(True)
-                    await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id)
+                    uploaded_msg = await helper.send_vid(bot, m, cc, filename, vidwatermark, thumb, name, prog, channel_id)
+                    if uploaded_msg:
+                        file_id = uploaded_msg.video.file_id if uploaded_msg.video else uploaded_msg.document.file_id
+                        file_type = "video" if uploaded_msg.video else "document"
+                        await db.add_cached_file(url, raw_text2, vidwatermark, file_id, file_type, cc)
                     count += 1
                     time.sleep(1)
+
                 
             except Exception as e:
                 await bot.send_message(channel_id, f'⚠️**Downloading Failed**⚠️\n**Name** =>> `{str(count).zfill(3)} {name1}`\n**Url** =>> {url}\n\n<blockquote><i><b>Failed Reason: {str(e)}</b></i></blockquote>', disable_web_page_preview=True)
@@ -1538,17 +1571,20 @@ async def text_handler(bot: Client, m: Message):
 
             elif "https://cpvod.testbook.com/" in url or "classplusapp.com/drm/" in url:
                 url = url.replace("https://cpvod.testbook.com/","https://media-cdn.classplusapp.com/drm/")
-                url = f"https://covercel.vercel.app/extract_keys?url={url}@bots_updatee&user_id=7793257011"
-                #url = f"https://scammer-keys.vercel.app/api?url={url}&token={cptoken}&auth=@scammer_botxz1"
-                mpd, keys = helper.get_mps_and_keys(url)
-                url = mpd
-                keys_string = " ".join([f"--key {key}" for key in keys])
+                cp_headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{raw_text4}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
+                cp_params = {"url": url}
+                cp_response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=cp_headers, params=cp_params)
+                if cp_response.status_code == 200 and 'url' in cp_response.json():
+                    url = cp_response.json()['url']
+                else:
+                    pass
 
             elif "classplusapp" in url:
-                signed_api = f"https://covercel.vercel.app/extract_keys?url={url}@bots_updatee&user_id=7793257011"
-                response = requests.get(signed_api, timeout=20)
-                #url = response.text.strip()
-                url = response.json()['url']  
+                cp_headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{raw_text4}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
+                cp_params = {"url": url}
+                cp_response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=cp_headers, params=cp_params)
+                if cp_response.status_code == 200 and 'url' in cp_response.json():
+                    url = cp_response.json()['url']  
 
             elif "tencdn.classplusapp" in url:
                 headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{raw_text4}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
