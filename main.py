@@ -961,6 +961,50 @@ async def send_logs(client: Client, m: Message):  # Correct parameter name
     except Exception as e:
         await m.reply_text(f"**Error sending logs:**\n<blockquote>{e}</blockquote>")
 
+@bot.on_message(filters.command(["test"]))
+async def test_env(client: Client, m: Message):
+    import shutil
+    import subprocess
+    
+    ffmpeg_path = shutil.which("ffmpeg")
+    ffprobe_path = shutil.which("ffprobe")
+    
+    msg = "**🔍 Environment Status Report:**\n\n"
+    
+    if ffmpeg_path:
+        msg += f"✅ **FFmpeg:** Found at `{ffmpeg_path}`\n"
+        try:
+            res = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            version_line = res.stdout.split('\n')[0]
+            msg += f"   • Version: `{version_line[:50]}...`\n"
+        except Exception as e:
+            msg += f"   • Error checking version: `{e}`\n"
+    else:
+        msg += "❌ **FFmpeg:** NOT found in PATH!\n"
+        
+    if ffprobe_path:
+        msg += f"✅ **FFprobe:** Found at `{ffprobe_path}`\n"
+        try:
+            res = subprocess.run(["ffprobe", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            version_line = res.stdout.split('\n')[0]
+            msg += f"   • Version: `{version_line[:50]}...`\n"
+        except Exception as e:
+            msg += f"   • Error checking version: `{e}`\n"
+    else:
+        msg += "❌ **FFprobe:** NOT found in PATH!\n"
+        
+    if not ffmpeg_path or not ffprobe_path:
+        msg += "\n⚠️ **Action Required:** FFmpeg/FFprobe are missing! HLS downloads will fail.\n"
+        msg += "💡 **Solution for Heroku:**\n"
+        msg += "1. App settings me buildpack add karein:\n"
+        msg += "   `https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git`\n"
+        msg += "2. App ko redeploy/rebuild karein dashboard se (Click 'Deploy Branch' or push code again).\n"
+        msg += "3. Make sure building environment works."
+    else:
+        msg += "\n🎉 Everything looks good! Bot is ready to download HLS streams."
+        
+    await m.reply_text(msg)
+
 @bot.on_message(filters.command(["drm"]) )
 async def txt_handler(bot: Client, m: Message):  
     global processing_request, cancel_requested, cancel_message, caption, vidwatermark, cwtoken, pwtoken, cptoken, topic
