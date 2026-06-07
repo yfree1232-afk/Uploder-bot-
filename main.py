@@ -69,7 +69,7 @@ def resolve_appx_vercel_url(url: str) -> str:
         api_base = f"https://{tenant}api.classx.co.in"
         api_url = f"{api_base}/get/fetchVideoDetailsById?course_id={course_id}&video_id={content_id}&ytflag=0&folder_wise_course=0"
         
-        token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjQ0NjE3MiIsInRpbWVzdGFtcCI6MTc4MDczMzE4OSwiaXZfdmVyIjoyMywic2Vzc2lvbiI6ImV5SjBlWEFpT2lKS1YxUWlMQ0poYkdjaU9pSklVekkxTmlKOS5leUpwWkNJNklqUTBOakUzTWlJc0ltVnRZV2xzSWpvaWMzVnlZV3ByYUdGeWRXRnlZVUJuYldGcGJDNWpiMjBpTENKdVlXMWxJam9pVTNWeVlXb2dTM1Z0WVhJaUxDSjBaVzVoYm5SVWVYQmxJam9pZFhObGNpSXNJblJsYm1GdWRFNWhiV1VpT2lKcllYVjBhV3g1WVdGc2NHcGxYMlJpSWl3aWRHVnVZVzUwU1dRaU9pSWlMQ0prYVhOb2IzTmhZbXhsSWJwbVlXeHpaWDAuMHdiajdOellzZVNsUTJqQUpfTFFmMDlwMG1lM2NYVmlLWHg2YWZkWmRTdyJ9.Q4BxMCC6y9f14LXvGng8omlkeA5Hc1Jzw7C7exjSJGo"
+        token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjQ0NjE3MiIsInRpbWVzdGFtcCI6MTc4MDczMzE4OSwiaXZfdmVyIjoyMywic2Vzc2lvbiI6ImV5SjBlWEFpT2lKS1YxUWlMQ0poYkdjaU9pSklVekkxTmlKOS5leUpwWkNJNklqUTBOakUzTWlJc0ltVnRZV2xzSWpvaWMzVnlZV3ByYUdGeWRXRnlZVUJuYldGcGJCNWpiMjBpTENKdVlXMWxJam9pVTNWeVlXb2dTM1Z0WVhJaUxDSjBaVzVoYm5SVWVYQmxJam9pZFhObGNpSXNJblJsYm1GdWRFNWhiV1VpT2lKcllYVjBhV3g1WVdGc2NHcGxYMlJpSWl3aWRHVnVZVzUwU1dRaU9pSWlMQ0prYVhOd2IzTmhZbXhsSWJwbVlXeHpaWDAuMHdiajdOellzZVNsUTJqQUpfTFFmMDlwMG1lM2NYVmlLWHg2YWZkWmRTdyJ9.Q4BxMCC6y9f14LXvGng8omlkeA5Hc1Jzw7C7exjSJGo"
         
         headers = {
             'Client-Service': 'Appx',
