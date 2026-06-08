@@ -1317,7 +1317,11 @@ async def txt_handler(bot: Client, m: Message):
             elif ("https://cpvod.testbook.com/" in url or "classplusapp.com/drm/" in url) and "Signature=" not in url:
                 url = url.replace("https://cpvod.testbook.com/","https://media-cdn.classplusapp.com/drm/")
                 cp_headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{cptoken}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
-                cp_params = {"url": url}
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    cp_params = {"contentId": cid, "offlineDownload": "false"}
+                else:
+                    cp_params = {"url": url}
                 cp_response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=cp_headers, params=cp_params)
                 if cp_response.status_code == 200 and 'url' in cp_response.json():
                     url = cp_response.json()['url']
@@ -1327,23 +1331,42 @@ async def txt_handler(bot: Client, m: Message):
 
             elif "classplusapp" in url and "Signature=" not in url:
                 cp_headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{cptoken}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
-                cp_params = {"url": url}
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    cp_params = {"contentId": cid, "offlineDownload": "false"}
+                else:
+                    cp_params = {"url": url}
                 cp_response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=cp_headers, params=cp_params)
                 if cp_response.status_code == 200 and 'url' in cp_response.json():
                     url = cp_response.json()['url']  
                 
             elif "tencdn.classplusapp" in url and "Signature=" not in url:
                 headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{cptoken}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
-                params = {"url": f"{url}"}
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    params = {"contentId": cid, "offlineDownload": "false"}
+                else:
+                    params = {"url": f"{url}"}
                 response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=headers, params=params)
                 url = response.json()['url']  
            
             elif 'videos.classplusapp' in url and "Signature=" not in url:
-                url = requests.get(f'https://api.classplusapp.com/cams/uploader/video/jw-signed-url?url={url}', headers={'x-access-token': f'{cptoken}'}).json()['url']
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    res = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params={"contentId": cid, "offlineDownload": "false"}, headers={'x-access-token': f'{cptoken}', "host": "api.classplusapp.com", "app-version": "1.4.73.2", "device-id": "c28d3cb16bbdac01", "user-agent": "Mobile-Android"}).json()
+                    if "url" in res: url = res["url"]
+                    elif "drmUrls" in res: url = res["drmUrls"]["manifestUrl"]
+                else:
+                    res = requests.get(f'https://api.classplusapp.com/cams/uploader/video/jw-signed-url?url={url}', headers={'x-access-token': f'{cptoken}'}).json()
+                    if "url" in res: url = res["url"]
             
             elif ('media-cdn.classplusapp.com' in url or 'media-cdn-alisg.classplusapp.com' in url or 'media-cdn-a.classplusapp.com' in url) and "Signature=" not in url: 
                 headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{cptoken}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
-                params = {"url": f"{url}"}
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    params = {"contentId": cid, "offlineDownload": "false"}
+                else:
+                    params = {"url": f"{url}"}
                 response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=headers, params=params)
                 url   = response.json()['url']
 
@@ -1752,7 +1775,11 @@ async def text_handler(bot: Client, m: Message):
             elif ("https://cpvod.testbook.com/" in url or "classplusapp.com/drm/" in url) and "Signature=" not in url:
                 url = url.replace("https://cpvod.testbook.com/","https://media-cdn.classplusapp.com/drm/")
                 cp_headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{raw_text4}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
-                cp_params = {"url": url}
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    cp_params = {"contentId": cid, "offlineDownload": "false"}
+                else:
+                    cp_params = {"url": url}
                 cp_response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=cp_headers, params=cp_params)
                 if cp_response.status_code == 200 and 'url' in cp_response.json():
                     url = cp_response.json()['url']
@@ -1761,23 +1788,42 @@ async def text_handler(bot: Client, m: Message):
 
             elif "classplusapp" in url and "Signature=" not in url:
                 cp_headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{raw_text4}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
-                cp_params = {"url": url}
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    cp_params = {"contentId": cid, "offlineDownload": "false"}
+                else:
+                    cp_params = {"url": url}
                 cp_response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=cp_headers, params=cp_params)
                 if cp_response.status_code == 200 and 'url' in cp_response.json():
                     url = cp_response.json()['url']  
 
             elif "tencdn.classplusapp" in url and "Signature=" not in url:
                 headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{raw_text4}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
-                params = {"url": f"{url}"}
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    params = {"contentId": cid, "offlineDownload": "false"}
+                else:
+                    params = {"url": f"{url}"}
                 response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=headers, params=params)
                 url = response.json()['url']  
            
             elif 'videos.classplusapp' in url and "Signature=" not in url:
-                url = requests.get(f'https://api.classplusapp.com/cams/uploader/video/jw-signed-url?url={url}', headers={'x-access-token': f'{raw_text4}'}).json()['url']
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    res = requests.get("https://api.classplusapp.com/cams/uploader/video/jw-signed-url", params={"contentId": cid, "offlineDownload": "false"}, headers={'x-access-token': f'{raw_text4}', "host": "api.classplusapp.com", "app-version": "1.4.73.2", "device-id": "c28d3cb16bbdac01", "user-agent": "Mobile-Android"}).json()
+                    if "url" in res: url = res["url"]
+                    elif "drmUrls" in res: url = res["drmUrls"]["manifestUrl"]
+                else:
+                    res = requests.get(f'https://api.classplusapp.com/cams/uploader/video/jw-signed-url?url={url}', headers={'x-access-token': f'{raw_text4}'}).json()
+                    if "url" in res: url = res["url"]
             
             elif ('media-cdn.classplusapp.com' in url or 'media-cdn-alisg.classplusapp.com' in url or 'media-cdn-a.classplusapp.com' in url) and "Signature=" not in url: 
                 headers = {'host': 'api.classplusapp.com', 'x-access-token': f'{raw_text4}', 'accept-language': 'EN', 'api-version': '18', 'app-version': '1.4.73.2', 'build-number': '35', 'connection': 'Keep-Alive', 'content-type': 'application/json', 'device-details': 'Xiaomi_Redmi 7_SDK-32', 'device-id': 'c28d3cb16bbdac01', 'region': 'IN', 'user-agent': 'Mobile-Android', 'webengage-luid': '00000187-6fe4-5d41-a530-26186858be4c', 'accept-encoding': 'gzip'}
-                params = {"url": f"{url}"}
+                if "contentId=" in url:
+                    cid = url.split("contentId=")[1].split("&")[0]
+                    params = {"contentId": cid, "offlineDownload": "false"}
+                else:
+                    params = {"url": f"{url}"}
                 response = requests.get('https://api.classplusapp.com/cams/uploader/video/jw-signed-url', headers=headers, params=params)
                 url   = response.json()['url']
 
