@@ -1623,6 +1623,7 @@ async def txt_handler(bot: Client, m: Message):
 
 @bot.on_message(filters.command("batchdownload") & filters.private)
 async def batchdownload_handler(client: Client, m: Message):
+    global cptoken
     is_auth = await db.is_user_authorized(m.chat.id, OWNER)
     if not is_auth:
         await m.reply_text(
@@ -1658,6 +1659,7 @@ async def batchdownload_handler(client: Client, m: Message):
             user_id=m.chat.id,
             credit_name=CREDIT,
             batch_name="Batch",
+            cptoken_from_main=cptoken
         )
 
     except Exception as e:
