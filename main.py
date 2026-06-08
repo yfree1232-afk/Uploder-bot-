@@ -1375,6 +1375,8 @@ async def txt_handler(bot: Client, m: Message):
                cmd = f'yt-dlp --add-header "referer:https://web.classplusapp.com/" --add-header "x-cdn-tag:empty" -f "{ytf}" "{url}" -o "{name}.mp4"'
             elif "youtube.com" in url or "youtu.be" in url:
                 cmd = f'yt-dlp --cookies youtube_cookies.txt -f "{ytf}" "{url}" -o "{name}".mp4'
+            elif "appx" in link0 or "classx" in link0:
+                cmd = f'yt-dlp --add-header "Origin:https://appx.co.in" --add-header "Referer:https://appx.co.in/" -f "{ytf}" "{url}" -o "{name}.mp4"'
             else:
                 cmd = f'yt-dlp -f "{ytf}" "{url}" -o "{name}.mp4"'
 
@@ -1431,15 +1433,19 @@ async def txt_handler(bot: Client, m: Message):
                     url_clean = url.replace(" ", "%20")
                     for attempt in range(3):
                         try:
+                            pdf_headers = {'User-Agent': 'Mozilla/5.0'}
+                            if "appx" in link0 or "classx" in link0:
+                                pdf_headers['Origin'] = 'https://appx.co.in'
+                                pdf_headers['Referer'] = 'https://appx.co.in/'
                             scraper = cloudscraper.create_scraper()
-                            response = scraper.get(url_clean)
+                            response = scraper.get(url_clean, headers=pdf_headers)
                             if response.status_code == 200:
                                 with open(pdf_path, 'wb') as file:
                                     file.write(response.content)
                                 success = True
                                 break
                             else:
-                                response = requests.get(url_clean)
+                                response = requests.get(url_clean, headers=pdf_headers)
                                 if response.status_code == 200:
                                     with open(pdf_path, 'wb') as file:
                                         file.write(response.content)
