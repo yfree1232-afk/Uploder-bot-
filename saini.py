@@ -310,6 +310,9 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
             thumbnail = f"{filename}.jpg"
         else:
             thumbnail = thumb  
+            
+        if not os.path.exists(thumbnail):
+            thumbnail = None
         
         if vidwatermark == "/d":
             w_filename = f"{filename}"
@@ -329,7 +332,8 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
 
     try:
         sent_msg = await bot.send_video(channel_id, w_filename, caption=cc, supports_streaming=True, height=720, width=1280, thumb=thumbnail, duration=dur, progress=progress_bar, progress_args=(reply, start_time))
-    except Exception:
+    except Exception as e:
+        print(f"send_video failed: {e}")
         sent_msg = await bot.send_document(channel_id, w_filename, caption=cc, progress=progress_bar, progress_args=(reply, start_time))
     os.remove(w_filename)
     await reply.delete(True)
