@@ -1268,10 +1268,17 @@ async def txt_handler(bot: Client, m: Message):
 
         
     failed_count = 0
-    count =int(raw_text)    
-    arg = int(raw_text)
+    if '-' in raw_text:
+        start_idx, end_idx = map(int, raw_text.split('-'))
+        arg = start_idx
+        end_arg = end_idx
+    else:
+        arg = int(raw_text)
+        end_arg = len(links)
+        
+    count = arg
     try:
-        for i in range(arg-1, len(links)):
+        for i in range(arg-1, end_arg):
             if cancel_requested:
                 await m.reply_text("🚦**STOPPED**🚦")
                 processing_request = False
@@ -1544,7 +1551,7 @@ async def txt_handler(bot: Client, m: Message):
                     if uploaded_msg:
                         file_id = uploaded_msg.video.file_id if uploaded_msg.video else uploaded_msg.document.file_id
                         file_type = "video" if uploaded_msg.video else "document"
-                        await db.add_cached_file(url, raw_text2, vidwatermark, file_id, file_type, cc)
+                        await db.add_cached_file(link0, raw_text2, vidwatermark, file_id, file_type, cc)
                     count += 1  
                     await asyncio.sleep(1)  
                     continue  
@@ -1585,7 +1592,7 @@ async def txt_handler(bot: Client, m: Message):
                     if uploaded_msg:
                         file_id = uploaded_msg.video.file_id if uploaded_msg.video else uploaded_msg.document.file_id
                         file_type = "video" if uploaded_msg.video else "document"
-                        await db.add_cached_file(url, raw_text2, vidwatermark, file_id, file_type, cc)
+                        await db.add_cached_file(link0, raw_text2, vidwatermark, file_id, file_type, cc)
                     count += 1
                     await asyncio.sleep(1)
                     continue
@@ -1619,7 +1626,7 @@ async def txt_handler(bot: Client, m: Message):
                     if uploaded_msg:
                         file_id = uploaded_msg.video.file_id if uploaded_msg.video else uploaded_msg.document.file_id
                         file_type = "video" if uploaded_msg.video else "document"
-                        await db.add_cached_file(url, raw_text2, vidwatermark, file_id, file_type, cc)
+                        await db.add_cached_file(link0, raw_text2, vidwatermark, file_id, file_type, cc)
                     count += 1
                     time.sleep(1)
 
