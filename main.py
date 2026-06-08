@@ -1376,7 +1376,12 @@ async def txt_handler(bot: Client, m: Message):
             elif "youtube.com" in url or "youtu.be" in url:
                 cmd = f'yt-dlp --cookies youtube_cookies.txt -f "{ytf}" "{url}" -o "{name}".mp4'
             elif "appx" in link0 or "classx" in link0:
-                cmd = f'yt-dlp --add-header "Origin:https://appx.co.in" --add-header "Referer:https://appx.co.in/" -f "{ytf}" "{url}" -o "{name}.mp4"'
+                dyn_origin = "https://appx.co.in"
+                if "appxsignurl.vercel.app/appx/" in link0:
+                    tenant = link0.split("appxsignurl.vercel.app/appx/")[1].split("/")[0]
+                    domain_to_use = "classx.co.in" if "classx" in url else "appx.co.in"
+                    dyn_origin = f"https://{tenant}.{domain_to_use}"
+                cmd = f'yt-dlp --add-header "Origin:{dyn_origin}" --add-header "Referer:{dyn_origin}/" -f "{ytf}" "{url}" -o "{name}.mp4"'
             else:
                 cmd = f'yt-dlp -f "{ytf}" "{url}" -o "{name}.mp4"'
 
@@ -1435,8 +1440,13 @@ async def txt_handler(bot: Client, m: Message):
                         try:
                             pdf_headers = {'User-Agent': 'Mozilla/5.0'}
                             if "appx" in link0 or "classx" in link0:
-                                pdf_headers['Origin'] = 'https://appx.co.in'
-                                pdf_headers['Referer'] = 'https://appx.co.in/'
+                                dyn_origin = "https://appx.co.in"
+                                if "appxsignurl.vercel.app/appx/" in link0:
+                                    tenant = link0.split("appxsignurl.vercel.app/appx/")[1].split("/")[0]
+                                    domain_to_use = "classx.co.in" if "classx" in url else "appx.co.in"
+                                    dyn_origin = f"https://{tenant}.{domain_to_use}"
+                                pdf_headers['Origin'] = dyn_origin
+                                pdf_headers['Referer'] = dyn_origin + '/'
                             scraper = cloudscraper.create_scraper()
                             response = scraper.get(url_clean, headers=pdf_headers)
                             if response.status_code == 200:
