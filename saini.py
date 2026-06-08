@@ -338,6 +338,6 @@ async def send_vid(bot: Client, m: Message, cc, filename, vidwatermark, thumb, n
     os.remove(w_filename)
     await reply.delete(True)
     await reply1.delete(True)
-    os.remove(f"{filename}.jpg")
+    if os.path.exists(f"{filename}.jpg"): os.remove(f"{filename}.jpg")
     return sent_msg
 
