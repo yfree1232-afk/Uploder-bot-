@@ -1292,7 +1292,7 @@ async def txt_handler(bot: Client, m: Message):
             # --- DATABASE CACHING CHECK ---
             cached_doc = await db.get_cached_file(url, raw_text2, vidwatermark)
             if cached_doc:
-                await m.reply_text(f"🚀 **Fast-forwarding: Found Cached File for URL Index {count}!**")
+                pass
                 try:
                     if cached_doc["file_type"] == "video":
                         await bot.send_video(chat_id=channel_id, video=cached_doc["file_id"], caption=cached_doc["caption"])
