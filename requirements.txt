@@ -18,3 +18,5 @@ motor
 pymongo
 dnspython
 
+
+opencv-python-headless
