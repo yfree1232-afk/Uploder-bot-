@@ -24,14 +24,6 @@ async def fetch_json_post(session, url, data=None, headers=None):
         logging.error(f"Error fetching JSON from {url}: {e}")
     return None
 
-async def fetch_json_get(session, url, headers=None):
-    try:
-        async with session.get(url, headers=headers, timeout=30) as resp:
-            return await resp.json()
-    except Exception as e:
-        logging.error(f"Error fetching JSON from {url}: {e}")
-    return None
-
 async def process_dams(bot: Client, m: Message, user_id: int):
     loop = asyncio.get_event_loop()
     CONNECTOR = aiohttp.TCPConnector(limit=100, loop=loop)
@@ -50,7 +42,6 @@ async def process_dams(bot: Client, m: Message, user_id: int):
 
         editable = await m.reply_text(f"🔄 Requesting OTP for `{mobile}`...")
 
-        # Request OTP
         api_base = "https://api.damsdelhi.com/v2_data_model"
         headers = {"User-Agent": "Mozilla/5.0"}
         login_url = f"{api_base}/login_authentication_v6"
@@ -78,7 +69,6 @@ async def process_dams(bot: Client, m: Message, user_id: int):
 
         await editable.edit("🔄 **Verifying OTP and Logging in...**")
         
-        # Verify OTP
         verify_data = {'mobile': mobile, 'otp': otp}
         verify_resp = await fetch_json_post(session, login_url, data=verify_data, headers=headers)
         
@@ -94,23 +84,28 @@ async def process_dams(bot: Client, m: Message, user_id: int):
         jwt_token = verify_resp.get("jwt") or verify_resp.get("auth_code") or data_payload.get("dams_tokken")
         
         if not jwt_token:
-            # Fallback: check if it's passed in headers or somewhere else
             await editable.edit("❌ **Auth Error**\n\nLogged in successfully but could not extract JWT token.")
             return
 
-        # Fetch Courses
-        await editable.edit("🔄 **Fetching your courses...**")
+        # Fetch ALL Courses instead of just purchased
+        await editable.edit("🔄 **Fetching ALL DAMS courses...**")
         auth_headers = {
             "User-Agent": "Mozilla/5.0",
             "Authorization": f"Bearer {jwt_token}" if not jwt_token.startswith("Bearer ") else jwt_token,
             "Content-Type": "application/json"
         }
         
-        courses_url = f"{api_base}/get_user_courses_wishlist"
+        # We try 'course_sub_category' to fetch all courses as requested
+        courses_url = f"{api_base}/course_sub_category"
         courses_resp = await fetch_json_post(session, courses_url, data={"userid": data_payload.get("id")}, headers=auth_headers)
         
+        # Fallback to get_user_courses_wishlist if course_sub_category fails
         if not courses_resp or not courses_resp.get("data"):
-            await editable.edit("❌ **No Courses Found!**\n\nMake sure you have purchased courses on this account.")
+            courses_url = f"{api_base}/get_user_courses_wishlist"
+            courses_resp = await fetch_json_post(session, courses_url, data={"userid": data_payload.get("id")}, headers=auth_headers)
+
+        if not courses_resp or not courses_resp.get("data"):
+            await editable.edit("❌ **No Courses Found!**")
             return
             
         batches = courses_resp.get("data", [])
@@ -120,7 +115,7 @@ async def process_dams(bot: Client, m: Message, user_id: int):
 
         text = ''
         for cnt, batch in enumerate(batches):
-            name = batch.get("course_name", "Unknown")
+            name = batch.get("course_name") or batch.get("title") or batch.get("name", "Unknown")
             price = batch.get("price", "Free")
             text += f"{cnt + 1}. {name} - Rs.{price}\n"
             
@@ -129,7 +124,7 @@ async def process_dams(bot: Client, m: Message, user_id: int):
             f.write(text)
             
         caption = (
-            f"🎓 <b>DAMS COURSES</b> 🎓\n\n"
+            f"🎓 <b>DAMS ALL COURSES</b> 🎓\n\n"
             f"📚 <b>TOTAL COURSES:</b> {len(batches)}\n\n"
             f"<code>╾───• @PRO_TXT_EXTRATOR_BOT •───╼</code>\n\n"
             "Send the index number to download course"
@@ -161,8 +156,8 @@ async def process_dams(bot: Client, m: Message, user_id: int):
             
         selected_idx = int(user_choice) - 1
         selected_batch = batches[selected_idx]
-        course_id = selected_batch.get("id")
-        batch_title = selected_batch.get("course_name", "Unknown Batch")
+        course_id = selected_batch.get("id") or selected_batch.get("course_id")
+        batch_title = selected_batch.get("course_name") or selected_batch.get("title") or selected_batch.get("name", "Unknown Batch")
         clean_batch_name = sanitize_filename(batch_title)
         
         status_msg = await m.reply_text(
@@ -171,21 +166,16 @@ async def process_dams(bot: Client, m: Message, user_id: int):
             f"Extracting content directly from DAMS..."
         )
 
-        # Extract course detail
         detail_url = f"{api_base}/get_course_detail"
         detail_data = {'course_id': course_id}
         course_resp = await fetch_json_post(session, detail_url, data=detail_data, headers=auth_headers)
         
         if not course_resp or not course_resp.get("data"):
-            await status_msg.edit(f"❌ **Data Error**\n\nCould not fetch course details for {batch_title}.")
+            await status_msg.edit(f"❌ **Data Error**\n\nCould not fetch course details for {batch_title}. (Course might be locked/unpurchased)")
             return
             
         all_outputs = []
         course_data = course_resp.get("data", {})
-        
-        # In DAMS, topics are usually in 'topics' or 'subjects' or 'video_list'
-        # Since we don't have the exact JSON schema of get_course_detail without a valid account,
-        # we will do a recursive generic search for 'video_url', 'file_url', etc.
         
         def extract_links(node, current_topic=""):
             if isinstance(node, dict):
@@ -206,7 +196,7 @@ async def process_dams(bot: Client, m: Message, user_id: int):
         extract_links(course_data)
         
         if len(all_outputs) == 0:
-            await status_msg.edit("❌ No content found for this course.")
+            await status_msg.edit("❌ No content found for this course. (It may require purchase to unlock).")
             return
             
         clean_file_name = f"{user_id}_{clean_batch_name}"
@@ -243,7 +233,6 @@ async def process_dams(bot: Client, m: Message, user_id: int):
             os.remove(f"{clean_file_name}.txt")
         except:
             pass
-
 
 @app.on_message(filters.command(["dams"]))
 async def dams_command(client, message):
