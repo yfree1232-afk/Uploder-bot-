@@ -41,56 +41,9 @@ async def process_ssc(bot: Client, m: Message, user_id: int):
     CONNECTOR = aiohttp.TCPConnector(limit=100, loop=loop)
 
     async with aiohttp.ClientSession(connector=CONNECTOR, loop=loop) as session:
-        # Step 1: Prompt for Mobile Number
-        try:
-            mobile_prompt = await m.reply_text("📱 **Please enter your SSC Pinnacle Mobile Number:**")
-            input_msg = await bot.listen(chat_id=m.chat.id, filters=filters.user(user_id), timeout=120)
-            mobile = input_msg.text.strip()
-            await input_msg.delete(True)
-            await mobile_prompt.delete()
-        except asyncio.TimeoutError:
-            await m.reply_text("❌ **Timeout!**\nYou took too long to respond.")
-            return
-
-        editable = await m.reply_text(f"🔄 Requesting OTP for `{mobile}`...")
-
-        # Request OTP
+        editable = await m.reply_text("🔄 **Fetching all SSC Pinnacle courses...**")
         api_base = "https://auth.ssccglpinnacle.com/api"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        
-        login_resp = await fetch_json_post(session, f"{api_base}/login", json_data={"phone": mobile}, headers=headers)
-        
-        # We will proceed even if login_resp structure is unknown, assuming it sends OTP.
-        await editable.edit("✅ **OTP Request Sent!**")
-
-        # Step 2: Prompt for OTP
-        try:
-            otp_prompt = await m.reply_text("🔑 **Please enter the OTP received:**")
-            input_msg2 = await bot.listen(chat_id=m.chat.id, filters=filters.user(user_id), timeout=120)
-            otp = input_msg2.text.strip()
-            await input_msg2.delete(True)
-            await otp_prompt.delete()
-        except asyncio.TimeoutError:
-            await editable.edit("❌ **Timeout!**\nYou took too long to respond.")
-            return
-
-        await editable.edit("🔄 **Verifying OTP and Logging in...**")
-        
-        # Verify OTP
-        verify_resp = await fetch_json_post(session, f"{api_base}/otp", json_data={"phone": mobile, "otp": otp}, headers=headers)
-        
-        jwt_token = ""
-        if verify_resp and isinstance(verify_resp, dict):
-            jwt_token = verify_resp.get("token") or verify_resp.get("data", {}).get("token") or verify_resp.get("jwt")
-            
-        if not jwt_token:
-            await editable.edit("⚠️ **Login finished, but couldn't parse token.**\nProceeding with course fetch (if token isn't strictly required to list).")
-
-        # Fetch All Courses
-        await editable.edit("🔄 **Fetching all SSC Pinnacle courses...**")
         auth_headers = {"User-Agent": "Mozilla/5.0"}
-        if jwt_token:
-            auth_headers["Authorization"] = f"Bearer {jwt_token}" if not jwt_token.startswith("Bearer ") else jwt_token
             
         courses_url = f"{api_base}/courses"
         batches = await fetch_json_get(session, courses_url, headers=auth_headers)
