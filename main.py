@@ -2808,6 +2808,19 @@ async def txt_handler(bot: Client, m: Message):
 
                cmd = f'yt-dlp --add-header "referer:https://web.classplusapp.com/" --add-header "x-cdn-tag:empty" -f "{ytf}" "{url}" -o "{name}.mp4"'
 
+            elif "vdocipher.com" in url:
+
+                cmd = f'vdo -u "{url}" -o "{name}.mp4"'
+
+            elif "videocrypt://" in url:
+
+                vc_id = url.split("://")[1]
+                cmd = f'videocrypt -v "{vc_id}" -o "{name}.mp4"'
+
+            elif "video.gumlet.io" in url:
+
+                cmd = f'yt-dlp -f "{ytf}" "{url}" -o "{name}.mp4"'
+
             elif "youtube.com" in url or "youtu.be" in url:
 
                 cmd = f'yt-dlp --cookies youtube_cookies.txt -f "{ytf}" "{url}" -o "{name}".mp4'
