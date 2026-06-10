@@ -2800,14 +2800,7 @@ async def txt_handler(bot: Client, m: Message):
 
            
 
-            if "vdocipher" in url:
-                videoId = url.split("videoId=")[1].split("&")[0] if "videoId=" in url else url
-                cmd = f'vdo -v {videoId} -o "{name}.mp4"'
-            elif "videocrypt" in url:
-                cmd = f'videocrypt -u "{url}" -o "{name}.mp4"'
-            elif "gumlet" in url:
-                cmd = f'yt-dlp --referer "https://video.gumlet.io/" -o "{name}.mp4" "{url}"'
-            elif "jw-prod" in url:
+            if "jw-prod" in url:
 
                 cmd = f'yt-dlp -o "{name}.mp4" "{url}"'
 
@@ -3060,33 +3053,19 @@ async def txt_handler(bot: Client, m: Message):
                     progress = (count / len(links)) * 100
 
                     Show1 = f"<blockquote>🚀𝐏𝐫𝐨𝐠𝐫𝐞𝐬𝐬 » {progress:.2f}%</blockquote>\n┃\n" \
-
                            f"┣🔗𝐈𝐧𝐝𝐞𝐱 » {count}/{len(links)}\n┃\n" \
-
                            f"╰━🖇️𝐑𝐞𝐦𝐚𝐢𝐧 » {remaining_links}\n" \
-
                            f"━━━━━━━━━━━━━━━━━━━━━━━━\n" \
-
                            f"<blockquote><b>⚡Dᴏᴡɴʟᴏᴀᴅɪɴɢ Eɴᴄʀʏᴘᴛᴇᴅ Sᴛᴀʀᴛᴇᴅ...⏳</b></blockquote>\n┃\n" \
-
                            f'┣💃𝐂𝐫𝐞𝐝𝐢𝐭 » {CR}\n┃\n' \
-
                            f"╰━📚𝐁𝐚𝐭𝐜𝐡 » {b_name}\n" \
-
                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n" \
-
                            f"<blockquote>📚𝐓𝐢𝐭𝐥𝐞 » {namef}</blockquote>\n┃\n" \
-
                            f"┣🍁𝐐𝐮𝐚𝐥𝐢𝐭𝐲 » {quality}\n┃\n" \
-
                            f'┣━🔗𝐋𝐢𝐧𝐤 » <a href="{link0}">**Original Link**</a>\n┃\n' \
-
                            f'╰━━🖇️𝐔𝐫𝐥 » <a href="{url}">**Api Link**</a>\n' \
-
                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n" \
-
                            f"🛑**Send** /stop **to stop process**\n┃\n" \
-
                            f"╰━✦𝐁𝐨𝐭 𝐌𝐚𝐝𝐞 𝐁𝐲 ✦ {CREDIT}"
 
                     Show = f"<i><b>Video Downloading</b></i>\n<blockquote><b>{str(count).zfill(3)}) {name1}</b></blockquote>" 
@@ -3142,33 +3121,19 @@ async def txt_handler(bot: Client, m: Message):
                     progress = (count / len(links)) * 100
 
                     Show1 = f"<blockquote>🚀𝐏𝐫𝐨𝐠𝐫𝐞𝐬𝐬 » {progress:.2f}%</blockquote>\n┃\n" \
-
                            f"┣🔗𝐈𝐧𝐝𝐞𝐱 » {count}/{len(links)}\n┃\n" \
-
                            f"╰━🖇️𝐑𝐞𝐦𝐚𝐢𝐧 » {remaining_links}\n" \
-
                            f"━━━━━━━━━━━━━━━━━━━━━━━━\n" \
-
                            f"<blockquote><b>⚡Dᴏᴡɴʟᴏᴀᴅɪɴɢ Sᴛᴀʀᴛᴇᴅ...⏳</b></blockquote>\n┃\n" \
-
                            f'┣💃𝐂𝐫𝐞𝐝𝐢𝐭 » {CR}\n┃\n' \
-
                            f"╰━📚𝐁𝐚𝐭च » {b_name}\n" \
-
                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n" \
-
                            f"<blockquote>📚𝐓𝐢𝐭𝐥𝐞 » {namef}</blockquote>\n┃\n" \
-
                            f"┣🍁𝐐𝐮𝐚𝐥𝐢𝐭𝐲 » {quality}\n┃\n" \
-
                            f'┣━🔗𝐋𝐢𝐧𝐤 » <a href="{link0}">**Original Link**</a>\n┃\n' \
-
                            f'╰━━🖇️𝐔𝐫𝐥 » <a href="{url}">**Api Link**</a>\n' \
-
                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n" \
-
                            f"🛑**Send** /stop **to stop process**\n┃\n" \
-
                            f"╰━✦𝐁𝐨𝐭 𝐌𝐚𝐝𝐞 𝐁𝐲 ✦ {CREDIT}"
 
                     Show = f"<i><b>Video Downloading</b></i>\n<blockquote><b>{str(count).zfill(3)}) {name1}</b></blockquote>"
@@ -3210,33 +3175,19 @@ async def txt_handler(bot: Client, m: Message):
                     progress = (count / len(links)) * 100
 
                     Show1 = f"<blockquote>🚀𝐏𝐫𝐨𝐠𝐫𝐞𝐬𝐬 » {progress:.2f}%</blockquote>\n┃\n" \
-
                            f"┣🔗𝐈𝐧𝐝𝐞𝐱 » {count}/{len(links)}\n┃\n" \
-
                            f"╰━🖇️𝐑𝐞𝐦𝐚𝐢𝐧 » {remaining_links}\n" \
-
                            f"━━━━━━━━━━━━━━━━━━━━━━━━\n" \
-
                            f"<blockquote><b>⚡Dᴏᴡɴʟᴏᴀᴅɪɴɢ Sᴛᴀʀᴛᴇᴅ...⏳</b></blockquote>\n┃\n" \
-
                            f'┣💃𝐂𝐫𝐞𝐝𝐢𝐭 » {CR}\n┃\n' \
-
                            f"╰━📚𝐁𝐚𝐭𝐜𝐡 » {b_name}\n" \
-
                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n" \
-
                            f"<blockquote>📚𝐓𝐢𝐭𝐥𝐞 » {namef}</blockquote>\n┃\n" \
-
                            f"┣🍁𝐐𝐮𝐚𝐥𝐢𝐭𝐲 » {quality}\n┃\n" \
-
                            f'┣━🔗𝐋𝐢𝐧𝐤 » <a href="{link0}">**Original Link**</a>\n┃\n' \
-
                            f'╰━━🖇️𝐔𝐫𝐥 » <a href="{url}">**Api Link**</a>\n' \
-
                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n" \
-
                            f"🛑**Send** /stop **to stop process**\n┃\n" \
-
                            f"╰━✦𝐁𝐨𝐭 𝐌𝐚𝐝𝐞 𝐁𝐲 ✦ {CREDIT}"
 
                     Show = f"<i><b>Video Downloading</b></i>\n<blockquote><b>{str(count).zfill(3)}) {name1}</b></blockquote>"
@@ -3719,14 +3670,7 @@ async def text_handler(bot: Client, m: Message):
 
            
 
-            if "vdocipher" in url:
-                videoId = url.split("videoId=")[1].split("&")[0] if "videoId=" in url else url
-                cmd = f'vdo -v {videoId} -o "{name}.mp4"'
-            elif "videocrypt" in url:
-                cmd = f'videocrypt -u "{url}" -o "{name}.mp4"'
-            elif "gumlet" in url:
-                cmd = f'yt-dlp --referer "https://video.gumlet.io/" -o "{name}.mp4" "{url}"'
-            elif "jw-prod" in url:
+            if "jw-prod" in url:
 
                 cmd = f'yt-dlp -o "{name}.mp4" "{url}"'
 
@@ -3903,9 +3847,7 @@ async def text_handler(bot: Client, m: Message):
                 elif 'encrypted.m' in url:    
 
                     Show = f"**⚡Dᴏᴡɴʟᴏᴀᴅɪɴɢ Sᴛᴀʀᴛᴇᴅ...⏳**\n" \
-
                            f"<blockquote expandable>🔗𝐋𝐢𝐧𝐤 » {url}</blockquote>\n" \
-
                            f"✦𝐁𝐨𝐭 𝐌𝐚𝐝𝐞 𝐁𝐲 ✦ {CREDIT}"
 
                     prog = await m.reply_text(Show, disable_web_page_preview=True)
@@ -3941,9 +3883,7 @@ async def text_handler(bot: Client, m: Message):
                         keys_string = ""
 
                     Show = f"**⚡Dᴏᴡɴʟᴏᴀᴅɪɴɢ Sᴛᴀʀᴛᴇᴅ...⏳**\n" \
-
                            f"<blockquote expandable>🔗𝐋𝐢𝐧𝐤 » {url}</blockquote>\n" \
-
                            f"✦𝐁𝐨𝐭 𝐌𝐚𝐝𝐞 𝐁𝐲 ✦ {CREDIT}"
 
                     prog = await m.reply_text(Show, disable_web_page_preview=True)
@@ -3965,9 +3905,7 @@ async def text_handler(bot: Client, m: Message):
                 else:
 
                     Show = f"**⚡Dᴏᴡɴʟᴏᴀᴅɪɴɢ Sᴛᴀʀᴛᴇᴅ...⏳**\n" \
-
                            f"<blockquote expandable>🔗𝐋𝐢𝐧𝐤 » {url}</blockquote>\n" \
-
                            f"✦𝐁𝐨𝐭 𝐌𝐚𝐝𝐞 𝐁𝐲 ✦ {CREDIT}"
 
                     prog = await m.reply_text(Show, disable_web_page_preview=True)
